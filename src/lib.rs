@@ -24,10 +24,10 @@ use log::Log;
 use time::{format_description::BorrowedFormatItem, macros::format_description, OffsetDateTime};
 
 const FILENAME_FORMAT: &[BorrowedFormatItem<'_>] =
-    format_description!("[year]-[month]-[day]T[hour]_[minute]_[second]");
+    format_description!("[year]-[month]-[day]T[hour repr:24]_[minute]_[second]");
 
 const ENTRY_FORMAT: &[BorrowedFormatItem<'_>] =
-    format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:2]");
+    format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:4]");
 
 fn now_formatted(format: &[BorrowedFormatItem<'_>]) -> Result<String, time::error::Format> {
     OffsetDateTime::now_utc()
