@@ -20,10 +20,12 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use time::{format_description::BorrowedFormatItem, macros::format_description, OffsetDateTime};
+
+const FILENAME_FORMAT: &[BorrowedFormatItem<'_>] = format_description!("[year]-[month]-[day]T[hour]_[minute]_[second]");
 
 fn now_formatted() -> Result<String, time::error::Format> {
-    OffsetDateTime::now_utc().format(&Rfc3339)
+    OffsetDateTime::now_utc().format(FILENAME_FORMAT).map(|mut s| { unsafe { s.as_bytes_mut().iter_mut().for_each(|b| if *b == b':' { *b = b'_' }) }; s})
 }
 
 #[derive(Debug)]
@@ -136,4 +138,14 @@ pub fn init(max_level: log::LevelFilter, use_logfile: bool) -> Result<(), Logger
     log::set_logger(LOGGER.get().unwrap())?;
     log::set_max_level(max_level);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn open_logfile() {
+        init(log::LevelFilter::Debug, true).unwrap();
+    }
 }
