@@ -20,12 +20,25 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
+use log::Log;
 use time::{format_description::BorrowedFormatItem, macros::format_description, OffsetDateTime};
 
-const FILENAME_FORMAT: &[BorrowedFormatItem<'_>] = format_description!("[year]-[month]-[day]T[hour]_[minute]_[second]");
+const FILENAME_FORMAT: &[BorrowedFormatItem<'_>] =
+    format_description!("[year]-[month]-[day]T[hour]_[minute]_[second]");
 
 fn now_formatted() -> Result<String, time::error::Format> {
-    OffsetDateTime::now_utc().format(FILENAME_FORMAT).map(|mut s| { unsafe { s.as_bytes_mut().iter_mut().for_each(|b| if *b == b':' { *b = b'_' }) }; s})
+    OffsetDateTime::now_utc()
+        .format(FILENAME_FORMAT)
+        .map(|mut s| {
+            unsafe {
+                s.as_bytes_mut().iter_mut().for_each(|b| {
+                    if *b == b':' {
+                        *b = b'_'
+                    }
+                })
+            };
+            s
+        })
 }
 
 #[derive(Debug)]
@@ -123,21 +136,37 @@ impl log::Log for Logger {
 
 static LOGGER: OnceLock<Logger> = OnceLock::new();
 
+pub struct LogState {}
+impl Drop for LogState {
+    fn drop(&mut self) {
+        if let Some(logger) = LOGGER.get() {
+            logger.flush();
+        }
+    }
+}
+
 /// Initializes the logger.
 ///
-/// If `use_logfile` is true, then the logger will also output log messages to a logfile located in the same path as the current executable. The file will be called log_X.txt, where X is the UTC time and date the logger was initialized in the RFC 3339 format.
-/// 
+/// If `use_logfile` is true, then the logger will also output log messages to a logfile located in the same path as the current executable. The file will be called log_X.txt, where X is the UTC time and date the logger was initialized in the RFC 3339 format. If writing to the logfile is enabled, then the function will return Some(LogState). This state should be dropped after all logging is complete to flush the logile.
+///
 /// # Errors
-/// 
+///
 /// The function will return an error if the logger is already set. Additionally, if `use_logfile` is true, the function will return an error if:
 ///  - Getting the executable's current path returns an error
 ///  - Said path contains non-UTF8 characters
 ///  - Attempting to create the logfile returns an error
-pub fn init(max_level: log::LevelFilter, use_logfile: bool) -> Result<(), LoggerInitError> {
+pub fn init(
+    max_level: log::LevelFilter,
+    use_logfile: bool,
+) -> Result<Option<LogState>, LoggerInitError> {
     _ = LOGGER.set(Logger::new(use_logfile)?);
     log::set_logger(LOGGER.get().unwrap())?;
     log::set_max_level(max_level);
-    Ok(())
+    if use_logfile {
+        Ok(Some(LogState {}))
+    } else {
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
@@ -146,6 +175,7 @@ mod tests {
 
     #[test]
     fn open_logfile() {
-        init(log::LevelFilter::Debug, true).unwrap();
+        let _log_state = init(log::LevelFilter::Debug, true).unwrap();
+        log::debug!("Testing")
     }
 }
