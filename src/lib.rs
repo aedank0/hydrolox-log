@@ -26,9 +26,12 @@ use time::{format_description::BorrowedFormatItem, macros::format_description, O
 const FILENAME_FORMAT: &[BorrowedFormatItem<'_>] =
     format_description!("[year]-[month]-[day]T[hour]_[minute]_[second]");
 
-fn now_formatted() -> Result<String, time::error::Format> {
+const ENTRY_FORMAT: &[BorrowedFormatItem<'_>] =
+    format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:2]");
+
+fn now_formatted(format: &[BorrowedFormatItem<'_>]) -> Result<String, time::error::Format> {
     OffsetDateTime::now_utc()
-        .format(FILENAME_FORMAT)
+        .format(format)
         .map(|mut s| {
             unsafe {
                 s.as_bytes_mut().iter_mut().for_each(|b| {
@@ -39,6 +42,12 @@ fn now_formatted() -> Result<String, time::error::Format> {
             };
             s
         })
+}
+fn now_filename() -> Result<String, time::error::Format> {
+    now_formatted(FILENAME_FORMAT)
+}
+fn now_entry() -> Result<String, time::error::Format> {
+    now_formatted(ENTRY_FORMAT)
 }
 
 #[derive(Debug)]
@@ -95,7 +104,7 @@ impl Logger {
                 File::create(format!(
                     "{}/log_{}.txt",
                     prefix.to_str().ok_or(LoggerInitError::NonUTF8Path)?,
-                    now_formatted()?
+                    now_filename()?
                 ))
                 .map_err(|e| LoggerInitError::CreateFileErr(e))?,
             ))
@@ -113,7 +122,7 @@ impl log::Log for Logger {
         if self.enabled(record.metadata()) {
             let output = format!(
                 "[ {} {} {} ]: {}\n",
-                now_formatted().expect("Failed to format current time"),
+                now_entry().expect("Failed to format current time"),
                 record.target(),
                 record.level(),
                 record.args()
