@@ -155,6 +155,7 @@ impl Drop for LogState {
 ///  - Getting the executable's current path returns an error
 ///  - Said path contains non-UTF8 characters
 ///  - Attempting to create the logfile returns an error
+#[must_use]
 pub fn init(
     max_level: log::LevelFilter,
     use_logfile: bool,
